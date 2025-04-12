@@ -26,19 +26,22 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  rememberMe: z.boolean().default(false),
+  rememberDevice: z.boolean().default(false),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const LoginPage = () => {
-  const { signIn, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [trustedDevices] = useLocalStorage<string[]>("trustedDevices", []);
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -52,14 +55,45 @@ const LoginPage = () => {
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: false,
+      rememberDevice: false,
     },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
     try {
-      await signIn(data.email, data.password);
+      // Check if this is a trusted device
+      if (trustedDevices.includes(data.email)) {
+        // Bypass OTP verification
+        navigate("/verify-otp", { 
+          state: { 
+            email: data.email, 
+            password: data.password,
+            rememberDevice: data.rememberDevice
+          } 
+        });
+      } else {
+        // In a real implementation, this would send the OTP to the user's email
+        toast({
+          title: "Verification code sent",
+          description: "Please check your email for the verification code",
+        });
+        
+        // Navigate to OTP verification page
+        navigate("/verify-otp", { 
+          state: { 
+            email: data.email, 
+            password: data.password,
+            rememberDevice: data.rememberDevice
+          } 
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +166,7 @@ const LoginPage = () => {
                   />
                   <FormField
                     control={form.control}
-                    name="rememberMe"
+                    name="rememberDevice"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                         <FormControl>
@@ -143,7 +177,7 @@ const LoginPage = () => {
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel>
-                            Remember me
+                            Remember this device (bypass verification next time)
                           </FormLabel>
                         </div>
                       </FormItem>

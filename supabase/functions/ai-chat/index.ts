@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key not found');
     }
 
-    const { messages } = await req.json();
+    const { messages, userProfile } = await req.json();
 
     // Format messages for OpenAI
     const formattedMessages = messages.map((msg: any) => ({
@@ -27,11 +27,43 @@ serve(async (req) => {
       content: msg.content
     }));
 
+    // Create personalized system message based on user profile
+    let systemMessage = 'You are a helpful AI learning assistant specialized in education. Provide concise, accurate, and educational responses. Always aim to explain concepts clearly and help with learning tasks.';
+    
+    if (userProfile) {
+      const { 
+        full_name, 
+        metadata 
+      } = userProfile;
+      
+      if (metadata) {
+        const { 
+          grade, 
+          preferred_subjects, 
+          learning_style, 
+          country, 
+          state, 
+          school 
+        } = metadata;
+
+        // Build personalized system message
+        systemMessage = `You are a helpful AI learning assistant specialized in education. 
+You are tutoring ${full_name || 'a student'}${grade ? ` in ${grade}` : ''}${school ? ` at ${school}` : ''}.
+${preferred_subjects && preferred_subjects.length > 0 ? `They are particularly interested in: ${preferred_subjects.join(', ')}.` : ''}
+${learning_style ? `Their preferred learning style is ${learning_style}. Adapt your explanations to be ${getLearningstyleDescription(learning_style)}.` : ''}
+${country ? `They are from ${country}${state ? `, ${state}` : ''}.` : ''}
+
+Provide concise, accurate, and educational responses tailored to their background and interests. 
+Always aim to explain concepts clearly and help with their learning journey.
+If they ask questions in subjects they're interested in, provide more detailed responses.`;
+      }
+    }
+
     // Add system message if not present
     if (!formattedMessages.find((msg: any) => msg.role === 'system')) {
       formattedMessages.unshift({
         role: 'system',
-        content: 'You are a helpful AI learning assistant specialized in education. Provide concise, accurate, and educational responses. Always aim to explain concepts clearly and help with learning tasks.'
+        content: systemMessage
       });
     }
 
@@ -75,3 +107,18 @@ serve(async (req) => {
     );
   }
 });
+
+function getLearningstyleDescription(style: string): string {
+  switch (style) {
+    case 'visual':
+      return 'more visual, using diagrams, charts, and images when appropriate';
+    case 'auditory':
+      return 'focused on clear verbal explanations, using analogies and stories';
+    case 'kinesthetic':
+      return 'practical and hands-on, providing examples of activities they can try';
+    case 'reading':
+      return 'text-based and structured, providing resources they can read';
+    default:
+      return 'balanced and accessible';
+  }
+}

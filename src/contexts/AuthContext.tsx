@@ -5,11 +5,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
+interface ProfileMetadata {
+  country?: string;
+  state?: string;
+  school?: string;
+  grade?: string;
+  preferred_subjects?: string[];
+  learning_style?: string;
+}
+
 interface Profile {
   id: string;
   email: string;
   full_name: string | null;
   is_approved: boolean;
+  metadata?: ProfileMetadata;
 }
 
 interface AuthContextType {
@@ -17,7 +27,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, metadata?: ProfileMetadata) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -76,13 +86,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      setProfile(data);
+      // Get user metadata from auth.users
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error("Error fetching user metadata:", userError);
+      }
+
+      // Combine profile data with metadata
+      setProfile({
+        ...data,
+        metadata: userData?.user?.user_metadata as ProfileMetadata
+      });
     } catch (error) {
       console.error("Error fetching profile:", error);
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, metadata?: ProfileMetadata) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -90,6 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         options: {
           data: {
             full_name: fullName,
+            ...metadata
           },
         },
       });
@@ -100,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       toast({
         title: "Account created",
-        description: "Please wait for admin approval to access the platform.",
+        description: "Please verify your email and wait for admin approval to access the platform.",
       });
       
       navigate("/pending-approval");

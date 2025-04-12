@@ -19,6 +19,7 @@ import Signup from "./pages/Signup";
 import Onboarding from "./pages/Onboarding";
 import PendingApproval from "./pages/PendingApproval";
 import Admin from "./pages/Admin";
+import VerifyOTP from "./pages/VerifyOTP";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/verify-otp" element={<VerifyOTP />} />
             <Route path="/pending-approval" element={<PendingApproval />} />
             
             {/* Protected Routes - Require Authentication and Approval */}
