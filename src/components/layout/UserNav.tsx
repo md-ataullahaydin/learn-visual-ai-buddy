@@ -5,7 +5,8 @@ import {
   User, 
   LogOut, 
   Settings, 
-  UserCircle 
+  UserCircle,
+  Shield
 } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -17,9 +18,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function UserNav() {
-  const user = null; // We'll implement auth later
+  const { user, profile, signOut } = useAuth();
+
+  // For demonstration, we'll use a hardcoded admin email
+  const isAdmin = user?.email === 'admin@example.com';
 
   if (!user) {
     return (
@@ -41,9 +46,12 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10">
-            <AvatarImage src="/placeholder.svg" alt="User" />
+            <AvatarImage src="/placeholder.svg" alt={profile?.full_name || 'User'} />
             <AvatarFallback>
-              <UserCircle className="h-6 w-6" />
+              {profile?.full_name 
+                ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) 
+                : <UserCircle className="h-6 w-6" />
+              }
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -51,17 +59,25 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">John Doe</p>
-            <p className="text-xs text-muted-foreground">john.doe@example.com</p>
+            <p className="text-sm font-medium">{profile?.full_name || 'User'}</p>
+            <p className="text-xs text-muted-foreground">{user.email}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/profile" className="cursor-pointer">
+          <Link to="/dashboard" className="cursor-pointer">
             <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+            <span>Dashboard</span>
           </Link>
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin" className="cursor-pointer">
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Admin Panel</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem asChild>
           <Link to="/settings" className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
@@ -69,7 +85,10 @@ export function UserNav() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="cursor-pointer">
+        <DropdownMenuItem 
+          className="cursor-pointer"
+          onClick={() => signOut()}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
