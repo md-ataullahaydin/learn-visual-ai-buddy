@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ArrowRight, 
@@ -40,65 +39,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
-// Sample chat history
-const initialMessages = [
-  {
-    id: 1,
-    role: "assistant",
-    content: "Hello! I'm your AI learning assistant. How can I help you today?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-  },
-  {
-    id: 2,
-    role: "user",
-    content: "Can you help me understand quadratic equations?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
-  },
-  {
-    id: 3,
-    role: "assistant",
-    content: 
-      "Absolutely! A quadratic equation is a second-degree polynomial equation of the form ax² + bx + c = 0, where a, b, and c are constants and a ≠ 0.\n\n" +
-      "Here are some key points:\n\n" +
-      "1. The standard form is ax² + bx + c = 0\n" +
-      "2. You can solve them using factoring, completing the square, or the quadratic formula\n" +
-      "3. The quadratic formula is x = (-b ± √(b² - 4ac)) / 2a\n" +
-      "4. The discriminant (b² - 4ac) tells you how many solutions exist\n\n" +
-      "Would you like me to generate a visual representation of a quadratic function or explain a specific aspect in more detail?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
-    hasImage: true,
-    imageDescription: "Parabola graph showing key features of a quadratic function: vertex, axis of symmetry, y-intercept, and roots."
-  },
-  {
-    id: 4,
-    role: "user",
-    content: "Can you show me how to solve a specific example?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
-  },
-  {
-    id: 5,
-    role: "assistant",
-    content: 
-      "Let's solve the quadratic equation: 2x² - 5x - 3 = 0\n\n" +
-      "Step 1: Identify the values of a, b, and c.\n" +
-      "a = 2, b = -5, c = -3\n\n" +
-      "Step 2: We can try to factor this equation.\n" +
-      "2x² - 5x - 3 = 0\n" +
-      "We need to find two numbers that multiply to give 2 × (-3) = -6 and add up to -5.\n" +
-      "These numbers are -6 and 1, since (-6) × 1 = -6 and (-6) + 1 = -5.\n\n" +
-      "Step 3: Rewrite the middle term.\n" +
-      "2x² - 6x + 1x - 3 = 0\n" +
-      "2x(x - 3) + 1(x - 3) = 0\n" +
-      "(2x + 1)(x - 3) = 0\n\n" +
-      "Step 4: Set each factor equal to zero and solve.\n" +
-      "2x + 1 = 0 or x - 3 = 0\n" +
-      "x = -1/2 or x = 3\n\n" +
-      "Therefore, the solutions to 2x² - 5x - 3 = 0 are x = -1/2 and x = 3.\n\n" +
-      "Would you like me to verify these solutions by substituting them back into the original equation?",
-    timestamp: new Date(Date.now() - 1000 * 60).toISOString(),
-  },
-];
+// Message type definition
+interface Message {
+  id: number;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  hasImage?: boolean;
+  imageDescription?: string;
+}
 
 // Sample suggestion prompts
 const suggestionPrompts = [
@@ -119,12 +71,18 @@ const conversations = [
 ];
 
 const AIAssistant = () => {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([{
+    id: 1,
+    role: "assistant",
+    content: "Hello! I'm your AI learning assistant. How can I help you today?",
+    timestamp: new Date().toISOString(),
+  }]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [newChatTitle, setNewChatTitle] = useState("");
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const { user } = useAuth();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -137,32 +95,70 @@ const AIAssistant = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
     
-    const userMessage = {
+    const userMessage: Message = {
       id: messages.length + 1,
       role: "user",
       content: inputValue,
       timestamp: new Date().toISOString(),
     };
     
-    setMessages([...messages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInputValue("");
     setIsProcessing(true);
     
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = {
+    try {
+      // Filter out system messages and prepare message history for the API
+      const messageHistory = messages
+        .filter(msg => msg.role !== "system")
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+      
+      // Add the new user message
+      messageHistory.push({
+        role: userMessage.role,
+        content: userMessage.content
+      });
+      
+      // Call our Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: { messages: messageHistory }
+      });
+      
+      if (error) {
+        throw new Error(`Error calling AI: ${error.message}`);
+      }
+      
+      // Add AI response to chat
+      const aiResponse: Message = {
         id: messages.length + 2,
         role: "assistant",
-        content: "I'm simulating an AI response to your question. In a real implementation, this would be generated by an actual AI model based on your input: " + inputValue,
+        content: data.response,
         timestamp: new Date().toISOString(),
       };
+      
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error("Error getting AI response:", error);
+      toast.error("Failed to get AI response. Please try again.");
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: messages.length + 2,
+        role: "assistant",
+        content: "I'm sorry, I encountered an error processing your request. Please try again later.",
+        timestamp: new Date().toISOString(),
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   const handleFileUpload = () => {
@@ -173,7 +169,8 @@ const AIAssistant = () => {
     const files = e.target.files;
     if (files && files.length > 0) {
       toast.success(`File uploaded: ${files[0].name}`);
-      // Handle file upload logic here
+      // In a real implementation, you would process the file here
+      // For example, you might want to send it to OpenAI for analysis
     }
   };
 
