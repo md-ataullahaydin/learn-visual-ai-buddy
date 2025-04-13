@@ -94,7 +94,6 @@ const Index = () => {
                   </div>
                 </div>
                 
-                {/* Floating elements */}
                 <div className="absolute -top-6 -right-6 bg-yellow-400 rounded-full p-4 shadow-lg">
                   <BookOpen className="h-8 w-8 text-yellow-800" />
                 </div>
@@ -107,7 +106,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Features Section */}
         <section className="py-20 bg-muted">
           <div className="container mx-auto px-4">
             <motion.div
@@ -158,7 +156,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* CTA Section */}
         <section className="py-20 bg-gradient-to-r from-primary/10 to-primary/20">
           <div className="container mx-auto px-4">
             <motion.div
@@ -192,41 +189,6 @@ const Index = () => {
             </motion.div>
           </div>
         </section>
-        
-        {/* Supabase Configuration Section - Show only when not configured */}
-        {(!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) && (
-          <section className="py-16 bg-amber-50 dark:bg-amber-950">
-            <div className="container mx-auto px-4">
-              <div className="max-w-3xl mx-auto text-center">
-                <h2 className="text-2xl font-bold text-amber-800 dark:text-amber-300 mb-4">
-                  Missing Supabase Configuration
-                </h2>
-                <p className="text-amber-700 dark:text-amber-400 mb-6">
-                  To use all features of this application, you need to set up your Supabase environment variables:
-                </p>
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md text-left">
-                  <ol className="list-decimal list-inside text-amber-700 dark:text-amber-400 space-y-2">
-                    <li>Create a Supabase project at <a href="https://supabase.com" className="underline" target="_blank" rel="noopener">supabase.com</a></li>
-                    <li>Get your project URL and anon key from the API settings</li>
-                    <li>Set the following environment variables:
-                      <ul className="list-disc list-inside ml-6 mt-1">
-                        <li>VITE_SUPABASE_URL</li>
-                        <li>VITE_SUPABASE_ANON_KEY</li>
-                      </ul>
-                    </li>
-                  </ol>
-                </div>
-                <div className="mt-6">
-                  <Button 
-                    onClick={() => window.open("https://docs.lovable.dev/integrations/supabase/", "_blank")}
-                  >
-                    View Supabase Integration Docs
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
       </div>
     </Layout>
   );
