@@ -5,25 +5,14 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { Apple, CheckCircle, Eye, EyeOff, Mail, Lock, User, Smartphone, Calendar, MapPin, School, Book } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, Mail, Lock, User, Smartphone, Calendar, MapPin, School, Book, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
-import { 
-  signUpWithEmail, 
-  signInWithGoogle, 
-  signInWithApple,
-  generateOTP, 
-  sendOTPEmail, 
-  storeOTP, 
-  verifyOTP, 
-  clearOTP, 
-  rememberDevice
-} from '@/lib/auth';
-import { FaGoogle } from 'react-icons/fa';
+import { signUpWithEmail, generateOTP, sendOTPEmail, storeOTP, verifyOTP, clearOTP, rememberDevice } from '@/lib/auth';
 import Layout from '@/components/Layout';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
@@ -85,7 +74,6 @@ const StepIndicator = ({ currentStep }: { currentStep: number }) => {
   );
 };
 
-const COUNTRIES = ['United States', 'Canada', 'India', 'United Kingdom', 'Australia', 'Germany', 'France', 'Japan', 'China', 'Brazil'];
 const SUBJECTS = ['Mathematics', 'Science', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography', 'Computer Science', 'Economics', 'Psychology'];
 const LEARNING_STYLES = ['Visual', 'Auditory', 'Reading/Writing', 'Kinesthetic', 'Mixed'];
 const STUDY_HOURS = ['1-5 hours', '6-10 hours', '11-15 hours', '16-20 hours', '20+ hours'];
@@ -100,6 +88,8 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [userData, setUserData] = useState<any>({});
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [customSubject, setCustomSubject] = useState('');
+  const [showCustomSubjectInput, setShowCustomSubjectInput] = useState(false);
 
   // Profile form
   const profileForm = useForm<z.infer<typeof profileSchema>>({
@@ -162,6 +152,16 @@ const Signup = () => {
       const newSubjects = [...selectedSubjects, subject];
       setSelectedSubjects(newSubjects);
       educationForm.setValue('subjects', newSubjects);
+    }
+  };
+
+  const addCustomSubject = () => {
+    if (customSubject.trim() !== '' && !selectedSubjects.includes(customSubject)) {
+      const newSubjects = [...selectedSubjects, customSubject];
+      setSelectedSubjects(newSubjects);
+      educationForm.setValue('subjects', newSubjects);
+      setCustomSubject('');
+      setShowCustomSubjectInput(false);
     }
   };
 
@@ -247,14 +247,6 @@ const Signup = () => {
         variant: 'destructive',
       });
     }
-  };
-
-  const handleGoogleSignIn = async () => {
-    await signInWithGoogle();
-  };
-
-  const handleAppleSignIn = async () => {
-    await signInWithApple();
   };
 
   const resendOTP = async () => {
@@ -423,26 +415,6 @@ const Signup = () => {
                       <Button type="submit" className="w-full">Continue</Button>
                     </div>
                     
-                    <div className="relative my-6">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t"></div>
-                      </div>
-                      <div className="relative flex justify-center text-sm">
-                        <span className="bg-card px-2 text-muted-foreground">Or sign up with</span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <Button variant="outline" onClick={handleGoogleSignIn} className="w-full">
-                        <FaGoogle className="mr-2 h-4 w-4" />
-                        Google
-                      </Button>
-                      <Button variant="outline" onClick={handleAppleSignIn} className="w-full">
-                        <Apple className="mr-2 h-4 w-4" />
-                        Apple
-                      </Button>
-                    </div>
-                    
                     <p className="mt-6 text-center text-sm text-muted-foreground">
                       Already have an account?{' '}
                       <Button variant="link" className="p-0" onClick={() => navigate('/login')}>
@@ -463,23 +435,16 @@ const Signup = () => {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Country</FormLabel>
-                            <Select 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select your country" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {COUNTRIES.map((country) => (
-                                  <SelectItem key={country} value={country}>
-                                    {country}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <FormControl>
+                              <div className="relative">
+                                <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                                <Input 
+                                  placeholder="Enter your country" 
+                                  className="pl-10" 
+                                  {...field} 
+                                />
+                              </div>
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -580,7 +545,64 @@ const Signup = () => {
                                 {subject}
                               </Button>
                             ))}
+                            
+                            {/* Add custom subject button */}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setShowCustomSubjectInput(true)}
+                              className="mb-2"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Subject
+                            </Button>
                           </div>
+                          
+                          {/* Custom subject input */}
+                          {showCustomSubjectInput && (
+                            <div className="mt-3 flex gap-2">
+                              <Input
+                                placeholder="Enter custom subject"
+                                value={customSubject}
+                                onChange={(e) => setCustomSubject(e.target.value)}
+                                className="flex-1"
+                              />
+                              <Button type="button" onClick={addCustomSubject}>
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                onClick={() => {
+                                  setShowCustomSubjectInput(false);
+                                  setCustomSubject('');
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {/* Display selected custom subjects */}
+                          {selectedSubjects.filter(s => !SUBJECTS.includes(s)).length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-sm font-medium mb-1">Custom Subjects:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {selectedSubjects.filter(s => !SUBJECTS.includes(s)).map((subject) => (
+                                  <Button
+                                    key={subject}
+                                    type="button"
+                                    variant="default"
+                                    onClick={() => toggleSubject(subject)}
+                                    className="mb-2"
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    {subject}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </FormItem>
                       )}
                     />

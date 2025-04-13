@@ -1,8 +1,9 @@
+
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, BookOpen, Users, CheckCircle, LucideShieldCheck, Bot } from "lucide-react";
+import { ArrowRight, BookOpen, Users, CheckCircle, LucideShieldCheck } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -46,16 +47,6 @@ const Index = () => {
                     onClick={() => navigate('/login')}
                   >
                     Login
-                  </Button>
-                  
-                  <Button 
-                    size="lg" 
-                    variant="secondary"
-                    onClick={() => navigate('/ai-demo')}
-                    className="group"
-                  >
-                    Try Dual AI
-                    <Bot className="ml-2 h-5 w-5 group-hover:scale-110 transition-transform" />
                   </Button>
                 </div>
               </motion.div>

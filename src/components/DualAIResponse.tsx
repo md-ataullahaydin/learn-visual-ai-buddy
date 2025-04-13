@@ -19,6 +19,7 @@ const DualAIResponse: React.FC<DualAIResponseProps> = ({ getPrimaryAIResponse })
   const [claudeResponse, setClaudeResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('primary');
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,37 +30,32 @@ const DualAIResponse: React.FC<DualAIResponseProps> = ({ getPrimaryAIResponse })
     }
 
     setIsLoading(true);
+    setError(null);
     setPrimaryResponse('');
     setClaudeResponse('');
 
     try {
-      // Get responses from both AIs in parallel
-      const responses = await Promise.allSettled([
-        // If there's a primary AI function provided, use it, otherwise use a placeholder
-        getPrimaryAIResponse 
-          ? getPrimaryAIResponse(question) 
-          : Promise.resolve('Primary AI response would appear here.'),
-        anthropic.getResponse(question)
-      ]);
-
-      // Handle the primary AI response
-      if (responses[0].status === 'fulfilled') {
-        setPrimaryResponse(responses[0].value);
+      // Get Claude response
+      const claudeResult = await anthropic.getResponse(question);
+      setClaudeResponse(claudeResult);
+      
+      // If there's a primary AI function provided, use it
+      if (getPrimaryAIResponse) {
+        try {
+          const primaryResult = await getPrimaryAIResponse(question);
+          setPrimaryResponse(primaryResult);
+        } catch (primaryError) {
+          console.error('Primary AI error:', primaryError);
+          setPrimaryResponse('Sorry, there was an error with the primary AI assistant.');
+        }
       } else {
-        setPrimaryResponse('Sorry, there was an error with the primary AI assistant.');
-        console.error('Primary AI error:', responses[0].reason);
-      }
-
-      // Handle the Claude response
-      if (responses[1].status === 'fulfilled') {
-        setClaudeResponse(responses[1].value);
-      } else {
-        setClaudeResponse('Sorry, there was an error with the Claude AI assistant.');
-        console.error('Claude error:', responses[1].reason);
+        // Default message if no primary AI is provided
+        setPrimaryResponse('This is a placeholder for the primary AI response. Connect your own AI to replace this.');
       }
     } catch (error) {
       console.error('Error fetching AI responses:', error);
-      toast.error('There was an error getting AI responses');
+      setError('There was an error getting AI responses. Please try again later.');
+      toast.error('Failed to get AI responses');
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +67,7 @@ const DualAIResponse: React.FC<DualAIResponseProps> = ({ getPrimaryAIResponse })
         <CardHeader>
           <CardTitle>Ask Your Question</CardTitle>
           <CardDescription>
-            Get answers from two different AI assistants
+            Get an answer from our AI assistant
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -93,47 +89,65 @@ const DualAIResponse: React.FC<DualAIResponseProps> = ({ getPrimaryAIResponse })
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Getting Responses...
+                  Getting Response...
                 </>
-              ) : 'Get AI Responses'}
+              ) : 'Get AI Response'}
             </Button>
           </CardFooter>
         </form>
       </Card>
 
+      {error && (
+        <Card className="mb-6 border-red-300">
+          <CardContent className="pt-6">
+            <p className="text-red-500">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {(primaryResponse || claudeResponse) && (
         <Card>
           <CardHeader>
-            <CardTitle>AI Responses</CardTitle>
+            <CardTitle>AI Response</CardTitle>
             <CardDescription>
-              Compare answers from different AI assistants
+              {getPrimaryAIResponse ? 'Compare answers from different AI assistants' : 'Response from our AI assistant'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="primary">Primary AI</TabsTrigger>
-                <TabsTrigger value="claude">Claude AI</TabsTrigger>
-              </TabsList>
-              <TabsContent value="primary" className="mt-4">
-                <div className="p-4 rounded-md bg-muted/50">
-                  {primaryResponse ? (
-                    <div className="whitespace-pre-wrap">{primaryResponse}</div>
-                  ) : (
-                    <div className="text-muted-foreground italic">No response yet</div>
-                  )}
-                </div>
-              </TabsContent>
-              <TabsContent value="claude" className="mt-4">
-                <div className="p-4 rounded-md bg-muted/50">
-                  {claudeResponse ? (
-                    <div className="whitespace-pre-wrap">{claudeResponse}</div>
-                  ) : (
-                    <div className="text-muted-foreground italic">No response yet</div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+            {getPrimaryAIResponse ? (
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="primary">Primary AI</TabsTrigger>
+                  <TabsTrigger value="claude">Claude AI</TabsTrigger>
+                </TabsList>
+                <TabsContent value="primary" className="mt-4">
+                  <div className="p-4 rounded-md bg-muted/50">
+                    {primaryResponse ? (
+                      <div className="whitespace-pre-wrap">{primaryResponse}</div>
+                    ) : (
+                      <div className="text-muted-foreground italic">No response yet</div>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="claude" className="mt-4">
+                  <div className="p-4 rounded-md bg-muted/50">
+                    {claudeResponse ? (
+                      <div className="whitespace-pre-wrap">{claudeResponse}</div>
+                    ) : (
+                      <div className="text-muted-foreground italic">No response yet</div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="p-4 rounded-md bg-muted/50">
+                {claudeResponse ? (
+                  <div className="whitespace-pre-wrap">{claudeResponse}</div>
+                ) : (
+                  <div className="text-muted-foreground italic">No response yet</div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
