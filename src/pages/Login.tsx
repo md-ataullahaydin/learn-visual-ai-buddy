@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   signInWithEmail,
   rememberDevice, 
@@ -29,6 +30,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Set up form
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -42,11 +44,13 @@ const Login = () => {
 
   const handleLogin = async (values: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
+    setLoginError(null);
     
     try {
       const { success, error } = await signInWithEmail(values.email, values.password);
       
       if (!success) {
+        setLoginError(error || 'Failed to sign in');
         toast({
           title: 'Error',
           description: error || 'Failed to sign in',
@@ -69,6 +73,7 @@ const Login = () => {
       navigate('/dashboard');
     } catch (error) {
       console.error(error);
+      setLoginError('An unexpected error occurred');
       toast({
         title: 'Error',
         description: 'An unexpected error occurred',
@@ -92,6 +97,12 @@ const Login = () => {
             <h1 className="text-3xl font-bold">Welcome back</h1>
             <p className="text-muted-foreground mt-2">Sign in to your account to continue</p>
           </div>
+          
+          {loginError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{loginError}</AlertDescription>
+            </Alert>
+          )}
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleLogin)} className="space-y-4">

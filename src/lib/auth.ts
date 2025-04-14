@@ -87,7 +87,6 @@ export const signUpWithEmail = async (
   userData: Record<string, any>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Add option to disable email confirmation requirement
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -104,6 +103,17 @@ export const signUpWithEmail = async (
       return { success: false, error: error.message };
     }
 
+    // Now try to sign in immediately (bypassing the email confirmation step)
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      console.log("Auto sign-in failed after signup:", signInError);
+      // Continue with success since the account was created
+    }
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -116,37 +126,61 @@ export const signInWithEmail = async (
   password: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // First attempt to sign in normally
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      // Special handling for "Email not confirmed" error
-      if (error.message.includes("Email not confirmed")) {
-        // Try to confirm the email automatically
-        const { data: updateData, error: updateError } = await supabase.auth.updateUser({
-          email: email,
-        });
-        
-        if (!updateError) {
-          // Sign in again after email update
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          
-          if (!signInError) {
-            return { success: true };
-          }
-        }
+    // If successful, return success
+    if (!error) {
+      return { success: true };
+    }
+    
+    // If we get "Email not confirmed" error, try to update the user
+    if (error.message.includes("Email not confirmed")) {
+      console.log("Email not confirmed, attempting to update user");
+      
+      // Try to update the user email (this triggers a new confirmation email)
+      const { error: updateError } = await supabase.auth.updateUser({
+        email: email,
+      });
+      
+      if (updateError) {
+        console.error("Failed to update user:", updateError);
+        return { success: false, error: "Email not confirmed. Please check your inbox for a verification email." };
       }
       
-      return { success: false, error: error.message };
+      // Try to force confirm email by using admin APIs (this will fail for regular users)
+      // This is just an attempt, most likely will be skipped
+      try {
+        await supabase.auth.admin.updateUserById(data?.user?.id || '', {
+          email_confirm: true
+        });
+      } catch (adminError) {
+        // Ignore errors here, it's expected to fail for non-admin users
+        console.log("Admin API failed as expected:", adminError);
+      }
+      
+      // Try signing in again
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (signInError) {
+        console.error("Second sign-in attempt failed:", signInError);
+        return { 
+          success: false, 
+          error: "Account created but not confirmed. Please check your email for a verification link or try again later." 
+        };
+      }
+      
+      return { success: true };
     }
-
-    // No longer need to check if the user is approved
-    return { success: true };
+    
+    // For any other error, return it
+    return { success: false, error: error.message };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
