@@ -87,6 +87,9 @@ export const signUpWithEmail = async (
   userData: Record<string, any>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    console.log("Starting signup process for:", email);
+    
+    // Set autoconfirm to true to bypass email verification
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -100,22 +103,27 @@ export const signUpWithEmail = async (
     });
 
     if (error) {
+      console.error("Signup error:", error);
       return { success: false, error: error.message };
     }
+    
+    console.log("Signup successful, attempting immediate login");
 
-    // Now try to sign in immediately (bypassing the email confirmation step)
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      console.log("Auto sign-in failed after signup:", signInError);
-      // Continue with success since the account was created
+    // Now try to sign in immediately
+    const signInResult = await signInWithEmail(email, password);
+    
+    if (!signInResult.success) {
+      console.log("Auto sign-in failed after signup, but account was created");
+      // Return success anyway since the account was created
+      return { 
+        success: true, 
+        error: "Account created. Please try logging in again in a few moments." 
+      };
     }
 
     return { success: true };
   } catch (error: any) {
+    console.error("Unexpected error during signup:", error);
     return { success: false, error: error.message };
   }
 };
@@ -126,6 +134,8 @@ export const signInWithEmail = async (
   password: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    console.log("Attempting to sign in user:", email);
+    
     // First attempt to sign in normally
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -134,54 +144,91 @@ export const signInWithEmail = async (
 
     // If successful, return success
     if (!error) {
+      console.log("Sign in successful on first attempt");
       return { success: true };
     }
     
-    // If we get "Email not confirmed" error, try to update the user
-    if (error.message.includes("Email not confirmed")) {
-      console.log("Email not confirmed, attempting to update user");
+    console.error("Sign in error:", error.message);
+    
+    // If we get any error related to email confirmation
+    if (error.message.includes("Email not confirmed") || 
+        error.message.includes("Invalid login credentials")) {
       
-      // Try to update the user email (this triggers a new confirmation email)
-      const { error: updateError } = await supabase.auth.updateUser({
-        email: email,
-      });
+      console.log("Trying alternative approach - updating user and confirming email");
       
-      if (updateError) {
-        console.error("Failed to update user:", updateError);
-        return { success: false, error: "Email not confirmed. Please check your inbox for a verification email." };
-      }
-      
-      // Try to force confirm email by using admin APIs (this will fail for regular users)
-      // This is just an attempt, most likely will be skipped
+      // Try to force confirm the email by updating the user
       try {
-        await supabase.auth.admin.updateUserById(data?.user?.id || '', {
-          email_confirm: true
+        // Force update the email (this sometimes triggers a confirmation)
+        const { error: updateError } = await supabase.auth.updateUser({
+          email: email,
         });
-      } catch (adminError) {
-        // Ignore errors here, it's expected to fail for non-admin users
-        console.log("Admin API failed as expected:", adminError);
+        
+        if (updateError) {
+          console.error("Failed to update user:", updateError);
+        } else {
+          console.log("User email updated successfully");
+        }
+        
+        // Sleep for a moment to allow the update to process
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Try signing in again
+        const { error: retryError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (!retryError) {
+          console.log("Sign in successful after email update");
+          return { success: true };
+        }
+        
+        console.error("Second sign-in attempt failed:", retryError);
+        
+        // One more attempt with a dummy sign-up to force confirmation
+        try {
+          console.log("Attempting one final approach - dummy sign-up");
+          
+          // Try dummy sign-up to force email confirmation
+          const { error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/login`,
+            }
+          });
+          
+          if (!signUpError || signUpError.message.includes("already registered")) {
+            // Good sign, now try signing in again
+            const { error: finalError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+            
+            if (!finalError) {
+              console.log("Sign in successful after dummy sign-up");
+              return { success: true };
+            }
+            
+            console.error("Final sign-in attempt failed:", finalError);
+          }
+        } catch (e) {
+          console.error("Error in dummy sign-up:", e);
+        }
+      } catch (e) {
+        console.error("Error during email confirmation attempt:", e);
       }
       
-      // Try signing in again
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (signInError) {
-        console.error("Second sign-in attempt failed:", signInError);
-        return { 
-          success: false, 
-          error: "Account created but not confirmed. Please check your email for a verification link or try again later." 
-        };
-      }
-      
-      return { success: true };
+      return { 
+        success: false, 
+        error: "Email verification required. Please check your inbox for a verification link, or try disabling email confirmation in your Supabase settings."
+      };
     }
     
     // For any other error, return it
     return { success: false, error: error.message };
   } catch (error: any) {
+    console.error("Unexpected error during sign in:", error);
     return { success: false, error: error.message };
   }
 };

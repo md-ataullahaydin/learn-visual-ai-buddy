@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,6 +18,13 @@ import {
   isDeviceRemembered
 } from '@/lib/auth';
 import Layout from '@/components/Layout';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Form validation schema
 const loginSchema = z.object({
@@ -31,6 +38,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [showEmailVerificationDialog, setShowEmailVerificationDialog] = useState(false);
 
   // Set up form
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -47,10 +55,18 @@ const Login = () => {
     setLoginError(null);
     
     try {
+      console.log("Login attempt for:", values.email);
       const { success, error } = await signInWithEmail(values.email, values.password);
       
       if (!success) {
+        console.error("Login failed:", error);
         setLoginError(error || 'Failed to sign in');
+        
+        // If it's an email verification issue, show the dialog
+        if (error?.includes("Email verification required") || error?.includes("Email not confirmed")) {
+          setShowEmailVerificationDialog(true);
+        }
+        
         toast({
           title: 'Error',
           description: error || 'Failed to sign in',
@@ -72,7 +88,7 @@ const Login = () => {
       
       navigate('/dashboard');
     } catch (error) {
-      console.error(error);
+      console.error("Unexpected login error:", error);
       setLoginError('An unexpected error occurred');
       toast({
         title: 'Error',
@@ -100,6 +116,7 @@ const Login = () => {
           
           {loginError && (
             <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>{loginError}</AlertDescription>
             </Alert>
           )}
@@ -188,6 +205,31 @@ const Login = () => {
           </p>
         </motion.div>
       </div>
+      
+      <Dialog 
+        open={showEmailVerificationDialog} 
+        onOpenChange={setShowEmailVerificationDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email Verification Required</DialogTitle>
+            <DialogDescription className="pt-4">
+              <p className="mb-4">Your email needs to be verified before you can log in.</p>
+              <p className="mb-4">Please check your inbox for a verification link. If you don't see it, check your spam folder.</p>
+              <p className="font-semibold">Note for Developers: </p>
+              <p>To disable email verification, go to the Supabase Dashboard → Authentication → Providers → Email, and turn off "Confirm Email" setting.</p>
+              <div className="mt-4 flex justify-end">
+                <Button 
+                  onClick={() => setShowEmailVerificationDialog(false)} 
+                  variant="outline"
+                >
+                  Close
+                </Button>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
