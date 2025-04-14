@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { toast } from '@/components/ui/use-toast';
 
@@ -93,7 +92,7 @@ export const signUpWithEmail = async (
       options: {
         data: {
           ...userData,
-          approved: false, // New users need approval
+          approved: true, // Always set approved to true
         },
       },
     });
@@ -123,12 +122,7 @@ export const signInWithEmail = async (
       return { success: false, error: error.message };
     }
 
-    // Check if user is approved
-    if (data.user?.user_metadata && data.user.user_metadata.approved === false) {
-      await supabase.auth.signOut();
-      return { success: false, error: "Your account hasn't been approved yet." };
-    }
-
+    // No longer need to check if the user is approved
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

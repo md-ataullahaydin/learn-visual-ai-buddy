@@ -37,6 +37,7 @@ const Signup = () => {
         ...userData,
         ...data,
         fullName: userData.fullName,
+        approved: true // Set approved to true by default
       };
       
       // Remove confirmPassword and rememberDevice from data to be sent to Supabase
@@ -65,11 +66,11 @@ const Signup = () => {
       
       toast({
         title: 'Success',
-        description: 'Your account has been created and is awaiting approval',
+        description: 'Your account has been created successfully. You can now log in.',
       });
       
-      // Redirect to awaiting approval page
-      navigate('/awaiting-approval');
+      // Redirect to login page instead of awaiting approval
+      navigate('/login');
       
     } catch (error) {
       console.error(error);
