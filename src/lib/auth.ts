@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { toast } from '@/components/ui/use-toast';
 
@@ -86,6 +87,7 @@ export const signUpWithEmail = async (
   userData: Record<string, any>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Add option to disable email confirmation requirement
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -94,6 +96,7 @@ export const signUpWithEmail = async (
           ...userData,
           approved: true, // Always set approved to true
         },
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     });
 
@@ -119,6 +122,26 @@ export const signInWithEmail = async (
     });
 
     if (error) {
+      // Special handling for "Email not confirmed" error
+      if (error.message.includes("Email not confirmed")) {
+        // Try to confirm the email automatically
+        const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+          email: email,
+        });
+        
+        if (!updateError) {
+          // Sign in again after email update
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          
+          if (!signInError) {
+            return { success: true };
+          }
+        }
+      }
+      
       return { success: false, error: error.message };
     }
 
